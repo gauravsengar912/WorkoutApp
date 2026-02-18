@@ -1,144 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FitTrack Pro</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com" rel="stylesheet">
-    <link rel="stylesheet" href="https://fonts.googleapis.com" />
-    <style>
-        body { font-family: 'Roboto', sans-serif; background-color: #f8f9fa; }
-        .google-card { background: white; border-radius: 8px; border: 1px solid #dadce0; transition: box-shadow 0.2s; }
-        .google-card:hover { box-shadow: 0 1px 6px rgba(32,33,36,0.28); }
-        .fab { position: fixed; bottom: 24px; right: 24px; background: #1a73e8; color: white; border-radius: 16px; padding: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-        .active-tab { border-bottom: 3px solid #1a73e8; color: #1a73e8; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lean Muscle Tracker</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body class="pb-24">
+<body>
+  <header>💪 Lean Muscle Tracker</header>
 
-    <!-- Header -->
-    <header class="bg-white border-b sticky top-0 z-50 px-4 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <span class="material-symbols-outlined text-gray-600">menu</span>
-            <h1 class="text-xl text-gray-700">FitTrack <span class="font-bold">Pro</span></h1>
-        </div>
-        <img src="https://ui-avatars.com" class="w-8 h-8 rounded-full" alt="Profile">
-    </header>
+  <main id="app"></main>
 
-    <!-- Workout Tabs -->
-    <nav class="bg-white border-b flex overflow-x-auto no-scrollbar">
-        <button onclick="showWorkout('day1')" id="tab-day1" class="flex-1 py-4 px-2 text-sm font-medium text-gray-500 whitespace-nowrap active-tab">UPPER A</button>
-        <button onclick="showWorkout('day2')" id="tab-day2" class="flex-1 py-4 px-2 text-sm font-medium text-gray-500 whitespace-nowrap">LOWER A</button>
-        <button onclick="showWorkout('day4')" id="tab-day4" class="flex-1 py-4 px-2 text-sm font-medium text-gray-500 whitespace-nowrap">UPPER B</button>
-        <button onclick="showWorkout('day5')" id="tab-day5" class="flex-1 py-4 px-2 text-sm font-medium text-gray-500 whitespace-nowrap">LOWER B</button>
-    </nav>
+  <nav>
+    <button onclick="loadHome()">Home</button>
+    <button onclick="loadWorkout()">Workout</button>
+    <button onclick="loadProgress()">Progress</button>
+  </nav>
 
-    <!-- Content Area -->
-    <main id="workout-content" class="p-4 max-w-2xl mx-auto">
-        <!-- Content dynamically injected here -->
-    </main>
-
-    <!-- Floating Action Button (Rest Timer) -->
-    <div class="fab cursor-pointer flex items-center gap-2" onclick="startTimer()">
-        <span class="material-symbols-outlined">timer</span>
-        <span id="timer-display">Rest</span>
-    </div>
-
-    <script>
-        const workoutData = {
-            day1: { title: "Upper A (Strength)", exercises: [
-                { name: "Barbell Bench Press", sets: "3–4", reps: "6–8" },
-                { name: "Barbell/DB Rows", sets: "3–4", reps: "6–8" },
-                { name: "Overhead Press", sets: "3", reps: "8–10" },
-                { name: "Pull-Ups / Lat Pulldown", sets: "3", reps: "8–10" },
-                { name: "Dips / CG Bench", sets: "2", reps: "10–12" }
-            ]},
-            day2: { title: "Lower A (Strength)", exercises: [
-                { name: "Barbell Back Squats", sets: "3–4", reps: "6–8" },
-                { name: "Romanian Deadlifts", sets: "3–4", reps: "8–10" },
-                { name: "Leg Press", sets: "3", reps: "10–12" },
-                { name: "Leg Curls", sets: "3", reps: "12–15" },
-                { name: "Calf Raises", sets: "4", reps: "15" }
-            ]},
-            day4: { title: "Upper B (Hypertrophy)", exercises: [
-                { name: "Incline DB Press", sets: "3", reps: "10–12" },
-                { name: "Seated Cable Rows", sets: "3", reps: "10–12" },
-                { name: "DB Lateral Raises", sets: "4", reps: "15" },
-                { name: "Face Pulls", sets: "3", reps: "15–20" },
-                { name: "Bicep Curls", sets: "3", reps: "12–15" },
-                { name: "Tricep Pushdowns", sets: "3", reps: "12–15" }
-            ]},
-            day5: { title: "Lower B (Hypertrophy)", exercises: [
-                { name: "Deadlifts", sets: "3", reps: "5–8" },
-                { name: "Lunges / Split Squats", sets: "3", reps: "10–12" },
-                { name: "Leg Extensions", sets: "3", reps: "12–15" },
-                { name: "Seated Calf Raises", sets: "3", reps: "15–20" },
-                { name: "Core (Plank/Leg Raises)", sets: "3", reps: "45–60s" }
-            ]}
-        };
-
-        function showWorkout(day) {
-            // Update UI Tabs
-            document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active-tab'));
-            document.getElementById(`tab-${day}`).classList.add('active-tab');
-
-            const workout = workoutData[day];
-            let html = `<h2 class="text-2xl font-semibold mb-4 text-gray-800">${workout.title}</h2>`;
-            
-            workout.exercises.forEach((ex, idx) => {
-                const savedWeight = localStorage.getItem(`${day}-ex-${idx}`) || "";
-                html += `
-                    <div class="google-card p-4 mb-4">
-                        <div class="flex justify-between items-start mb-2">
-                            <h3 class="font-medium text-lg text-gray-800">${ex.name}</h3>
-                            <span class="text-sm bg-blue-50 text-blue-700 px-2 py-1 rounded">${ex.sets} Sets</span>
-                        </div>
-                        <p class="text-sm text-gray-500 mb-3">Target: ${ex.reps} Reps</p>
-                        <div class="flex gap-2">
-                            <input type="number" placeholder="Weight (kg)" 
-                                value="${savedWeight}"
-                                onchange="saveProgress('${day}-ex-${idx}', this.value)"
-                                class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                            <button onclick="this.parentElement.parentElement.classList.toggle('opacity-50')" class="bg-gray-100 p-2 rounded">
-                                <span class="material-symbols-outlined text-gray-600">check_circle</span>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-            document.getElementById('workout-content').innerHTML = html;
-        }
-
-        function saveProgress(key, val) {
-            localStorage.setItem(key, val);
-        }
-
-        let timer;
-        function startTimer() {
-            clearInterval(timer);
-            let seconds = 60;
-            const display = document.getElementById('timer-display');
-            timer = setInterval(() => {
-                seconds--;
-                display.innerText = `${seconds}s`;
-                if (seconds <= 0) {
-                    clearInterval(timer);
-                    display.innerText = "Rest";
-                    alert("Time to lift!");
-                }
-            }, 1000);
-        }
-
-        // Initial Load
-        showWorkout('day1');
-
-        // Service Worker for PWA
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('https://cdn.jsdelivr.net');
-            });
-        }
-    </script>
+  <script src="workouts.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
