@@ -1,24 +1,997 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Lean Muscle Tracker</title>
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="description" content="4-Day Workout Plan - Push, Pull, Legs & Upper Strength">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FORGE">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>FORGE — Your Training Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #16161f;
+    --border: #1e1e2e;
+    --accent: #e8ff47;
+    --accent2: #ff4757;
+    --accent3: #47c9ff;
+    --text: #f0f0f8;
+    --muted: #6b6b8a;
+    --push: #ff6b35;
+    --pull: #47c9ff;
+    --legs: #a855f7;
+    --upper: #e8ff47;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── NOISE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999; opacity: 0.4;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 1.5rem;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 60px;
+  }
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    text-shadow: 0 0 30px rgba(232,255,71,0.4);
+  }
+  .logo span { color: var(--text); }
+  .header-right {
+    display: flex; align-items: center; gap: 1rem;
+  }
+  .install-btn {
+    display: none;
+    background: var(--accent); color: #0a0a0f;
+    border: none; border-radius: 6px;
+    padding: 0.4rem 1rem;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600; font-size: 0.8rem;
+    cursor: pointer; letter-spacing: 0.05em;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .install-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(232,255,71,0.4); }
+  .install-btn.visible { display: block; }
+
+  /* ── WEEK VIEW ── */
+  .week-strip {
+    padding: 1.5rem 1.5rem 0;
+    display: flex; gap: 0.5rem;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .week-strip::-webkit-scrollbar { display: none; }
+  .day-pill {
+    flex-shrink: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    min-width: 70px;
+    position: relative;
+    overflow: hidden;
+  }
+  .day-pill::after {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 3px;
+    transition: all 0.2s;
+  }
+  .day-pill.push::after { background: var(--push); }
+  .day-pill.pull::after { background: var(--pull); }
+  .day-pill.legs::after { background: var(--legs); }
+  .day-pill.upper::after { background: var(--upper); }
+  .day-pill.rest::after { background: var(--muted); }
+  .day-pill:hover { border-color: var(--muted); transform: translateY(-2px); }
+  .day-pill.active {
+    border-color: transparent;
+    transform: translateY(-2px);
+  }
+  .day-pill.active.push { background: rgba(255,107,53,0.15); border-color: var(--push); }
+  .day-pill.active.pull { background: rgba(71,201,255,0.15); border-color: var(--pull); }
+  .day-pill.active.legs { background: rgba(168,85,247,0.15); border-color: var(--legs); }
+  .day-pill.active.upper { background: rgba(232,255,71,0.15); border-color: var(--upper); }
+  .day-pill.active.rest { background: rgba(107,107,138,0.15); border-color: var(--muted); }
+  .day-pill .day-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem; line-height: 1;
+    color: var(--muted);
+  }
+  .day-pill.active .day-num { color: var(--text); }
+  .day-pill .day-label {
+    font-size: 0.65rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin-top: 0.2rem;
+  }
+  .day-pill.active.push .day-label { color: var(--push); }
+  .day-pill.active.pull .day-label { color: var(--pull); }
+  .day-pill.active.legs .day-label { color: var(--legs); }
+  .day-pill.active.upper .day-label { color: var(--upper); }
+
+  /* ── MAIN CONTENT ── */
+  main { padding: 1.5rem; max-width: 900px; margin: 0 auto; }
+
+  /* ── DAY HEADER ── */
+  .day-hero {
+    margin-bottom: 2rem;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    flex-wrap: wrap; gap: 1rem;
+  }
+  .day-hero-left {}
+  .day-tag {
+    font-size: 0.7rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.15em;
+    padding: 0.3rem 0.8rem; border-radius: 4px;
+    display: inline-block; margin-bottom: 0.75rem;
+  }
+  .day-tag.push { background: rgba(255,107,53,0.2); color: var(--push); border: 1px solid rgba(255,107,53,0.3); }
+  .day-tag.pull { background: rgba(71,201,255,0.2); color: var(--pull); border: 1px solid rgba(71,201,255,0.3); }
+  .day-tag.legs { background: rgba(168,85,247,0.2); color: var(--legs); border: 1px solid rgba(168,85,247,0.3); }
+  .day-tag.upper { background: rgba(232,255,71,0.2); color: var(--upper); border: 1px solid rgba(232,255,71,0.3); }
+  .day-tag.rest { background: rgba(107,107,138,0.2); color: var(--muted); border: 1px solid rgba(107,107,138,0.3); }
+  .day-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.5rem, 8vw, 4rem);
+    line-height: 0.9;
+    letter-spacing: 0.02em;
+  }
+  .day-subtitle {
+    color: var(--muted); font-size: 0.9rem;
+    margin-top: 0.5rem;
+  }
+  .progress-ring-wrap {
+    flex-shrink: 0;
+  }
+  .progress-info {
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .progress-info .count { font-size: 1.5rem; font-weight: 600; color: var(--accent); }
+  .progress-info .label { font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
+
+  /* ── REST DAY ── */
+  .rest-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 3rem;
+    text-align: center;
+  }
+  .rest-icon { font-size: 4rem; margin-bottom: 1rem; }
+  .rest-card h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem; letter-spacing: 0.05em;
+    color: var(--muted); margin-bottom: 0.75rem;
+  }
+  .rest-card p { color: var(--muted); line-height: 1.6; max-width: 400px; margin: 0 auto; }
+
+  /* ── EXERCISE CARD ── */
+  .exercises-grid {
+    display: flex; flex-direction: column; gap: 1rem;
+  }
+  .ex-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+    position: relative;
+  }
+  .ex-card:hover { border-color: var(--muted); }
+  .ex-card.completed {
+    opacity: 0.6;
+    border-style: dashed;
+  }
+  .ex-card-top {
+    display: flex; align-items: center;
+    padding: 1.25rem 1.25rem 1.25rem 1.25rem;
+    gap: 1rem;
+    cursor: pointer;
+  }
+  .ex-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem; line-height: 1;
+    color: var(--border); flex-shrink: 0;
+    width: 2rem; text-align: center;
+    transition: color 0.2s;
+  }
+  .ex-card:hover .ex-num { color: var(--muted); }
+  .ex-info { flex: 1; }
+  .ex-name {
+    font-weight: 600; font-size: 1rem;
+    margin-bottom: 0.4rem;
+  }
+  .ex-meta {
+    display: flex; gap: 0.75rem; flex-wrap: wrap;
+  }
+  .ex-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem; font-weight: 600;
+    padding: 0.2rem 0.6rem; border-radius: 4px;
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .ex-actions {
+    display: flex; gap: 0.5rem; flex-shrink: 0;
+  }
+  .btn-icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--muted);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-icon.done { background: rgba(232,255,71,0.15); border-color: var(--accent); color: var(--accent); }
+  .btn-icon.playing { background: rgba(255,71,87,0.15); border-color: var(--accent2); color: var(--accent2); }
+
+  /* ── VIDEO PANEL ── */
+  .video-panel {
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    padding: 0;
+    max-height: 0; overflow: hidden;
+    transition: max-height 0.4s ease, padding 0.4s ease;
+  }
+  .video-panel.open {
+    max-height: 500px;
+    padding: 1.25rem;
+  }
+  .video-wrap {
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0; border-radius: 10px; overflow: hidden;
+    background: #000;
+  }
+  .video-wrap iframe {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    border: none;
+  }
+  .video-label {
+    margin-top: 0.75rem;
+    font-size: 0.8rem; color: var(--muted);
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .video-label a {
+    color: var(--accent3); text-decoration: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+  }
+  .video-label a:hover { text-decoration: underline; }
+
+  /* ── SET TRACKER ── */
+  .set-tracker {
+    border-top: 1px solid var(--border);
+    padding: 1rem 1.25rem;
+    display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  }
+  .set-label {
+    font-size: 0.8rem; color: var(--muted); font-weight: 500;
+    min-width: 3rem;
+  }
+  .set-dots {
+    display: flex; gap: 0.5rem; flex-wrap: wrap;
+  }
+  .set-dot {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; font-weight: 600;
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+  .set-dot:hover { border-color: var(--accent); color: var(--accent); }
+  .set-dot.done { background: var(--accent); border-color: var(--accent); color: #0a0a0f; }
+  .notes-toggle {
+    margin-left: auto;
+    font-size: 0.75rem; color: var(--muted);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    background: none; border: none;
+  }
+  .notes-area {
+    width: 100%; margin-top: 0.75rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    padding: 0.75rem;
+    resize: vertical; min-height: 60px;
+    display: none;
+  }
+  .notes-area.visible { display: block; }
+
+  /* ── BOTTOM NAV ── */
+  .bottom-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(10,10,15,0.95);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    padding: 0.75rem 1.5rem calc(0.75rem + env(safe-area-inset-bottom));
+    display: flex; justify-content: space-around; align-items: center;
+    z-index: 100;
+  }
+  .bottom-bar .nav-item {
+    display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+    cursor: pointer;
+    color: var(--muted);
+    transition: color 0.2s;
+    background: none; border: none;
+    padding: 0.4rem 1rem;
+    border-radius: 10px;
+  }
+  .bottom-bar .nav-item:hover, .bottom-bar .nav-item.active { color: var(--accent); }
+  .bottom-bar .nav-item .icon { font-size: 1.3rem; line-height: 1; }
+  .bottom-bar .nav-item .label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; }
+  main { padding-bottom: 100px; }
+
+  /* ── TIMER MODAL ── */
+  .timer-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(10px);
+    z-index: 200;
+    display: none; align-items: center; justify-content: center;
+  }
+  .timer-overlay.open { display: flex; }
+  .timer-modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 2.5rem;
+    text-align: center;
+    width: 320px;
+    max-width: 90vw;
+    position: relative;
+  }
+  .timer-modal h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5rem; letter-spacing: 0.1em;
+    color: var(--muted); margin-bottom: 1.5rem;
+  }
+  .timer-display {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 5rem; line-height: 1;
+    color: var(--accent);
+    text-shadow: 0 0 40px rgba(232,255,71,0.5);
+    margin-bottom: 1.5rem;
+  }
+  .timer-btns {
+    display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  .timer-preset {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    padding: 0.5rem 0.8rem;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    transition: all 0.15s;
+  }
+  .timer-preset:hover { border-color: var(--accent); color: var(--accent); }
+  .timer-controls {
+    display: flex; gap: 0.75rem; justify-content: center; margin-bottom: 1rem;
+  }
+  .btn-timer {
+    flex: 1; padding: 0.9rem;
+    border-radius: 12px;
+    font-weight: 700; font-size: 0.9rem;
+    cursor: pointer; border: none;
+    transition: all 0.15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn-start { background: var(--accent); color: #0a0a0f; }
+  .btn-start:hover { filter: brightness(1.1); }
+  .btn-reset { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  .btn-reset:hover { border-color: var(--muted); color: var(--text); }
+  .btn-close-timer {
+    position: absolute; top: 1rem; right: 1rem;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--muted);
+    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 1rem;
+  }
+
+  /* ── OVERVIEW TAB ── */
+  .overview-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem; margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem;
+  }
+  .stat-card .value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem; line-height: 1;
+    color: var(--accent); margin-bottom: 0.25rem;
+  }
+  .stat-card .stat-label {
+    font-size: 0.75rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.1em;
+  }
+  .week-overview {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+  .week-row {
+    display: flex; align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    gap: 1rem; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .week-row:last-child { border-bottom: none; }
+  .week-row:hover { background: var(--surface2); }
+  .week-row .wr-day {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem; width: 2.5rem; flex-shrink: 0; color: var(--muted);
+  }
+  .week-row .wr-name { flex: 1; font-weight: 500; font-size: 0.95rem; }
+  .week-row .wr-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem; color: var(--muted);
+  }
+  .week-row .wr-dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  }
+  .wr-dot.push { background: var(--push); }
+  .wr-dot.pull { background: var(--pull); }
+  .wr-dot.legs { background: var(--legs); }
+  .wr-dot.upper { background: var(--upper); }
+  .wr-dot.rest { background: var(--muted); }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem; letter-spacing: 0.1em;
+    color: var(--muted); margin-bottom: 1rem;
+  }
+  .note-card {
+    background: rgba(255,107,53,0.08);
+    border: 1px solid rgba(255,107,53,0.2);
+    border-radius: 12px;
+    padding: 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: #ffb89a;
+  }
+  .note-card strong { color: var(--push); }
+  
+  /* ── ANIMATIONS ── */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .ex-card {
+    animation: fadeIn 0.3s ease both;
+  }
+  .ex-card:nth-child(1) { animation-delay: 0.05s; }
+  .ex-card:nth-child(2) { animation-delay: 0.1s; }
+  .ex-card:nth-child(3) { animation-delay: 0.15s; }
+  .ex-card:nth-child(4) { animation-delay: 0.2s; }
+  .ex-card:nth-child(5) { animation-delay: 0.25s; }
+  .ex-card:nth-child(6) { animation-delay: 0.3s; }
+  .ex-card:nth-child(7) { animation-delay: 0.35s; }
+
+  /* ── TAB VIEWS ── */
+  .tab-view { display: none; }
+  .tab-view.active { display: block; }
+
+  @media (max-width: 480px) {
+    .day-hero { flex-direction: column; align-items: flex-start; }
+  }
+</style>
 </head>
 <body>
-  <header>💪 Lean Muscle Tracker</header>
 
-  <main id="app"></main>
+<header>
+  <div class="logo">FOR<span>GE</span></div>
+  <div class="header-right">
+    <button class="install-btn" id="installBtn">Install App</button>
+  </div>
+</header>
 
-  <nav>
-    <button onclick="loadHome()">Home</button>
-    <button onclick="loadWorkout()">Workout</button>
-    <button onclick="loadProgress()">Progress</button>
-  </nav>
+<div class="week-strip" id="weekStrip"></div>
 
-  <script src="workouts.js"></script>
-  <script src="app.js"></script>
+<main>
+  <div class="tab-view active" id="tab-workout">
+    <div class="day-hero" id="dayHero"></div>
+    <div id="dayContent"></div>
+  </div>
+  <div class="tab-view" id="tab-overview">
+    <div class="overview-grid">
+      <div class="stat-card">
+        <div class="value">4</div>
+        <div class="stat-label">Training Days</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" id="statSets">0</div>
+        <div class="stat-label">Total Sets (Week)</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" id="statExercises">0</div>
+        <div class="stat-label">Total Exercises</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">7</div>
+        <div class="stat-label">Day Cycle</div>
+      </div>
+    </div>
+    <p class="section-title">Weekly Schedule</p>
+    <div class="week-overview" id="weekOverview"></div>
+    <br>
+    <p class="section-title">Important Note</p>
+    <div class="note-card">
+      <strong>💡 RDL Alternative:</strong> If Romanian Deadlift feels risky, replace it with <strong>Seated Leg Curl</strong> or <strong>Cable Pull-Throughs</strong> for a safer hip-hinge movement pattern with less spinal load.
+    </div>
+  </div>
+</main>
+
+<!-- REST TIMER -->
+<div class="timer-overlay" id="timerOverlay">
+  <div class="timer-modal">
+    <button class="btn-close-timer" id="closeTimer">✕</button>
+    <h3>REST TIMER</h3>
+    <div class="timer-display" id="timerDisplay">2:00</div>
+    <div class="timer-btns">
+      <button class="timer-preset" onclick="setTimer(60)">1:00</button>
+      <button class="timer-preset" onclick="setTimer(90)">1:30</button>
+      <button class="timer-preset" onclick="setTimer(120)">2:00</button>
+      <button class="timer-preset" onclick="setTimer(180)">3:00</button>
+      <button class="timer-preset" onclick="setTimer(240)">4:00</button>
+    </div>
+    <div class="timer-controls">
+      <button class="btn-timer btn-start" id="timerStartBtn" onclick="toggleTimer()">START</button>
+      <button class="btn-timer btn-reset" onclick="resetTimer()">RESET</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-bar">
+  <button class="nav-item active" id="nav-workout" onclick="switchTab('workout')">
+    <span class="icon">🏋️</span>
+    <span class="label">Workout</span>
+  </button>
+  <button class="nav-item" id="nav-overview" onclick="switchTab('overview')">
+    <span class="icon">📋</span>
+    <span class="label">Overview</span>
+  </button>
+  <button class="nav-item" id="nav-timer" onclick="openTimer()">
+    <span class="icon">⏱️</span>
+    <span class="label">Timer</span>
+  </button>
+</div>
+
+<script>
+// ────────────────────────────────────────────────
+// DATA
+// ────────────────────────────────────────────────
+const DAYS = [
+  {
+    day: 1, type: 'push', label: 'PUSH',
+    title: 'Push Day',
+    subtitle: 'Chest · Shoulders · Triceps',
+    exercises: [
+      { name: 'Barbell Bench Press', sets: 4, reps: '5–6', ytId: 'rT7DgCr-3pg' },
+      { name: 'Incline Dumbbell Press', sets: 3, reps: '8–10', ytId: '8iPEnn-ltC8' },
+      { name: 'Seated Dumbbell Shoulder Press', sets: 3, reps: '8–10', ytId: 'qEwKCR5JCog' },
+      { name: 'Cable Chest Fly', sets: 3, reps: '12–15', ytId: 'RzMZu6GAnpw' },
+      { name: 'Lateral Raises', sets: 3, reps: '12–15', ytId: '3VcKaXpzqRo' },
+      { name: 'Triceps Rope Pushdown', sets: 3, reps: '10–12', ytId: 'vB5OHsJ3EME' },
+      { name: 'Overhead Dumbbell Triceps Extension', sets: 2, reps: '12–15', ytId: 'YbX7Wd8jQ-Q' },
+    ]
+  },
+  { day: 2, type: 'rest', label: 'REST', title: 'Rest Day', subtitle: 'Recovery & mobility', exercises: [] },
+  {
+    day: 3, type: 'pull', label: 'PULL',
+    title: 'Pull Day',
+    subtitle: 'Back · Biceps · No Deadlift',
+    exercises: [
+      { name: 'Chest-Supported T-Bar Row', sets: 4, reps: '6–8', ytId: 'FHKKuAFZQL8' },
+      { name: 'Pull-Ups / Lat Pulldown', sets: 3, reps: '8–10', ytId: 'eGo4IYlbE5g' },
+      { name: 'Single-Arm Dumbbell Row', sets: 3, reps: '8–10', ytId: 'pYcpY20QaE8' },
+      { name: 'Seated Cable Row (Neutral Grip)', sets: 3, reps: '10–12', ytId: 'GZbfZ033f74' },
+      { name: 'Face Pulls', sets: 3, reps: '12–15', ytId: 'rep-qVOkqgk' },
+      { name: 'EZ-Bar Bicep Curl', sets: 3, reps: '8–10', ytId: 'zG2a6KciVe0' },
+      { name: 'Hammer Curl', sets: 2, reps: '12', ytId: 'TwD-YGVP4Bk' },
+    ]
+  },
+  { day: 4, type: 'rest', label: 'REST', title: 'Rest Day', subtitle: 'Recovery & mobility', exercises: [] },
+  {
+    day: 5, type: 'legs', label: 'LEGS',
+    title: 'Legs + Core',
+    subtitle: 'Hip-Hinge Focus · No Heavy Deadlift',
+    exercises: [
+      { name: 'Barbell Back Squat', sets: 4, reps: '5–6', ytId: 'bEv6CCg2BC8' },
+      { name: 'Romanian Deadlift (Light–Moderate)', sets: 3, reps: '8–10', ytId: 'JCXUYuzwNrM' },
+      { name: 'Hip Thrust (Barbell / Machine)', sets: 3, reps: '8–10', ytId: 'xDmFkJxPzeM' },
+      { name: 'Leg Press', sets: 3, reps: '10–12', ytId: 'IZxyjW7MPJQ' },
+      { name: 'Lying Leg Curl', sets: 3, reps: '12–15', ytId: 'ELOCsoDSmrg' },
+      { name: 'Standing Calf Raises', sets: 4, reps: '12–15', ytId: '-M4-G8p1vWg' },
+      { name: 'Plank', sets: 3, reps: '45–60 sec', ytId: 'kHaUNqpf3Fg' },
+    ]
+  },
+  {
+    day: 6, type: 'upper', label: 'UPPER',
+    title: 'Upper Strength',
+    subtitle: 'Strength & Arms',
+    exercises: [
+      { name: 'Incline Barbell Bench Press', sets: 4, reps: '6–8', ytId: 'DbFgADa2PL8' },
+      { name: 'Assisted / Weighted Pull-Ups', sets: 3, reps: '6–8', ytId: 'eGo4IYlbE5g' },
+      { name: 'Chest-Supported Dumbbell Row', sets: 3, reps: '8–10', ytId: 'p3yAIVpJqMg' },
+      { name: 'Cable Lateral Raises', sets: 3, reps: '12–15', ytId: 'PPdLnOuT9m4' },
+      { name: 'EZ-Bar Skull Crushers', sets: 3, reps: '10–12', ytId: 'd_KZxkY_0cM' },
+      { name: 'Incline Dumbbell Bicep Curl', sets: 3, reps: '10–12', ytId: 'soxrZlIl35U' },
+      { name: 'Hanging Leg Raises', sets: 3, reps: '10–15', ytId: 'hdng3enNKqU' },
+    ]
+  },
+  { day: 7, type: 'rest', label: 'REST', title: 'Rest Day', subtitle: 'Recovery & mobility', exercises: [] },
+];
+
+// ────────────────────────────────────────────────
+// STATE
+// ────────────────────────────────────────────────
+let activeDay = 0;
+let completedSets = {}; // { dayType-exIdx-setIdx: bool }
+let completedExercises = {}; // { dayType-exIdx: bool }
+let openVideo = null; // exIdx or null
+let timerInterval = null;
+let timerSeconds = 120;
+let timerRunning = false;
+let savedNotes = {};
+
+// Load state
+try {
+  const saved = JSON.parse(localStorage.getItem('forge-state') || '{}');
+  completedSets = saved.sets || {};
+  completedExercises = saved.exs || {};
+  savedNotes = saved.notes || {};
+} catch(e) {}
+
+function saveState() {
+  localStorage.setItem('forge-state', JSON.stringify({
+    sets: completedSets, exs: completedExercises, notes: savedNotes
+  }));
+}
+
+// ────────────────────────────────────────────────
+// RENDER
+// ────────────────────────────────────────────────
+function render() {
+  renderWeekStrip();
+  renderDay();
+  renderOverview();
+}
+
+function renderWeekStrip() {
+  const strip = document.getElementById('weekStrip');
+  strip.innerHTML = DAYS.map((d, i) => `
+    <div class="day-pill ${d.type} ${i === activeDay ? 'active' : ''}" onclick="setDay(${i})">
+      <div class="day-num">${d.day}</div>
+      <div class="day-label">${d.label}</div>
+    </div>
+  `).join('');
+}
+
+function renderDay() {
+  const d = DAYS[activeDay];
+  const hero = document.getElementById('dayHero');
+  const content = document.getElementById('dayContent');
+
+  // Completed count
+  const total = d.exercises.length;
+  const done = d.exercises.filter((_, i) => completedExercises[`${d.type}-${i}`]).length;
+
+  hero.innerHTML = `
+    <div class="day-hero-left">
+      <div class="day-tag ${d.type}">Day ${d.day} · ${d.label}</div>
+      <div class="day-title">${d.title}</div>
+      <div class="day-subtitle">${d.subtitle}</div>
+    </div>
+    ${total > 0 ? `
+    <div class="progress-ring-wrap">
+      <div class="progress-info">
+        <div class="count">${done}/${total}</div>
+        <div class="label">Complete</div>
+      </div>
+    </div>` : ''}
+  `;
+
+  if (d.type === 'rest') {
+    content.innerHTML = `
+      <div class="rest-card">
+        <div class="rest-icon">🧘</div>
+        <h2>Rest & Recover</h2>
+        <p>Today is your rest day. Focus on sleep, hydration, and light mobility work. Let your muscles repair and grow stronger.</p>
+      </div>`;
+    return;
+  }
+
+  content.innerHTML = `<div class="exercises-grid">${
+    d.exercises.map((ex, i) => buildExCard(ex, i, d)).join('')
+  }</div>`;
+}
+
+function buildExCard(ex, i, d) {
+  const key = `${d.type}-${i}`;
+  const isDone = completedExercises[key] || false;
+  const isVideoOpen = openVideo === i;
+
+  const sets = Array.from({length: ex.sets}, (_, si) => {
+    const sk = `${key}-${si}`;
+    const done = completedSets[sk] || false;
+    return `<div class="set-dot ${done ? 'done' : ''}" onclick="toggleSet('${sk}', '${key}', ${ex.sets}, ${i})" title="Set ${si+1}">${si+1}</div>`;
+  }).join('');
+
+  const note = savedNotes[key] || '';
+
+  return `
+  <div class="ex-card ${isDone ? 'completed' : ''}" id="ex-${i}">
+    <div class="ex-card-top" onclick="toggleVideo(${i})">
+      <div class="ex-num">${String(i+1).padStart(2,'0')}</div>
+      <div class="ex-info">
+        <div class="ex-name">${ex.name}${isDone ? ' ✓' : ''}</div>
+        <div class="ex-meta">
+          <span class="ex-badge">${ex.sets} SETS</span>
+          <span class="ex-badge">${ex.reps} REPS</span>
+        </div>
+      </div>
+      <div class="ex-actions" onclick="event.stopPropagation()">
+        <div class="btn-icon ${isVideoOpen ? 'playing' : ''}" onclick="toggleVideo(${i})" title="Watch video">▶</div>
+        <div class="btn-icon ${isDone ? 'done' : ''}" onclick="toggleExDone('${key}', ${i})" title="Mark complete">✓</div>
+      </div>
+    </div>
+    <div class="video-panel ${isVideoOpen ? 'open' : ''}" id="vpanel-${i}">
+      ${isVideoOpen ? `
+      <div class="video-wrap">
+        <iframe src="https://www.youtube.com/embed/${ex.ytId}?autoplay=1&rel=0&modestbranding=1"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen></iframe>
+      </div>
+      <div class="video-label">
+        📺 Tutorial · <a href="https://www.youtube.com/watch?v=${ex.ytId}" target="_blank" rel="noopener">Open on YouTube ↗</a>
+      </div>
+      ` : ''}
+    </div>
+    <div class="set-tracker">
+      <div class="set-label">SETS</div>
+      <div class="set-dots">${sets}</div>
+      <button class="notes-toggle" onclick="toggleNotes('${key}')">notes</button>
+    </div>
+    <textarea class="notes-area ${note ? 'visible' : ''}" id="notes-${key}" placeholder="Add notes, weight, form cues..." onchange="saveNote('${key}', this.value)">${note}</textarea>
+  </div>`;
+}
+
+// ────────────────────────────────────────────────
+// INTERACTIONS
+// ────────────────────────────────────────────────
+function setDay(i) {
+  activeDay = i;
+  openVideo = null;
+  renderWeekStrip();
+  renderDay();
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function toggleVideo(i) {
+  if (openVideo === i) {
+    openVideo = null;
+  } else {
+    openVideo = i;
+  }
+  renderDay();
+}
+
+function toggleSet(sk, exKey, totalSets, exIdx) {
+  completedSets[sk] = !completedSets[sk];
+  const allDone = Array.from({length: totalSets}, (_, si) => {
+    return completedSets[`${exKey}-${si}`];
+  }).every(Boolean);
+  completedExercises[exKey] = allDone;
+  saveState();
+  renderDay();
+}
+
+function toggleExDone(key, exIdx) {
+  const current = completedExercises[key] || false;
+  completedExercises[key] = !current;
+  const d = DAYS[activeDay];
+  const ex = d.exercises[exIdx];
+  // Mark all sets
+  Array.from({length: ex.sets}, (_, si) => {
+    completedSets[`${key}-${si}`] = !current;
+  });
+  saveState();
+  renderDay();
+}
+
+function toggleNotes(key) {
+  const ta = document.getElementById('notes-' + key);
+  if (ta) { ta.classList.toggle('visible'); if (ta.classList.contains('visible')) ta.focus(); }
+}
+
+function saveNote(key, val) {
+  savedNotes[key] = val;
+  saveState();
+}
+
+// ────────────────────────────────────────────────
+// OVERVIEW
+// ────────────────────────────────────────────────
+function renderOverview() {
+  let totalSets = 0, totalExercises = 0;
+  DAYS.forEach(d => {
+    d.exercises.forEach(ex => {
+      totalSets += ex.sets;
+      totalExercises++;
+    });
+  });
+  document.getElementById('statSets').textContent = totalSets;
+  document.getElementById('statExercises').textContent = totalExercises;
+
+  const wo = document.getElementById('weekOverview');
+  wo.innerHTML = DAYS.map((d, i) => `
+    <div class="week-row" onclick="setDay(${i}); switchTab('workout')">
+      <div class="wr-day">${d.day}</div>
+      <div class="wr-dot ${d.type}"></div>
+      <div class="wr-name">${d.title}<br><small style="color:var(--muted);font-size:0.75rem">${d.subtitle}</small></div>
+      <div class="wr-count">${d.exercises.length > 0 ? d.exercises.length + ' exercises' : 'Rest'}</div>
+    </div>
+  `).join('');
+}
+
+// ────────────────────────────────────────────────
+// TABS
+// ────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('nav-' + tab).classList.add('active');
+}
+
+// ────────────────────────────────────────────────
+// REST TIMER
+// ────────────────────────────────────────────────
+function openTimer() {
+  document.getElementById('timerOverlay').classList.add('open');
+}
+document.getElementById('closeTimer').onclick = () => {
+  document.getElementById('timerOverlay').classList.remove('open');
+};
+
+function setTimer(secs) {
+  timerRunning = false;
+  clearInterval(timerInterval);
+  timerSeconds = secs;
+  document.getElementById('timerStartBtn').textContent = 'START';
+  updateTimerDisplay();
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(timerSeconds / 60);
+  const s = timerSeconds % 60;
+  document.getElementById('timerDisplay').textContent = `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function toggleTimer() {
+  if (timerRunning) {
+    clearInterval(timerInterval);
+    timerRunning = false;
+    document.getElementById('timerStartBtn').textContent = 'RESUME';
+  } else {
+    timerRunning = true;
+    document.getElementById('timerStartBtn').textContent = 'PAUSE';
+    timerInterval = setInterval(() => {
+      if (timerSeconds <= 0) {
+        clearInterval(timerInterval);
+        timerRunning = false;
+        document.getElementById('timerStartBtn').textContent = 'START';
+        document.getElementById('timerDisplay').style.color = 'var(--accent2)';
+        if ('vibrate' in navigator) navigator.vibrate([300, 100, 300]);
+        setTimeout(() => { document.getElementById('timerDisplay').style.color = 'var(--accent)'; }, 2000);
+        return;
+      }
+      timerSeconds--;
+      updateTimerDisplay();
+    }, 1000);
+  }
+}
+
+function resetTimer() {
+  clearInterval(timerInterval);
+  timerRunning = false;
+  timerSeconds = 120;
+  document.getElementById('timerStartBtn').textContent = 'START';
+  document.getElementById('timerDisplay').style.color = 'var(--accent)';
+  updateTimerDisplay();
+}
+
+updateTimerDisplay();
+
+// ────────────────────────────────────────────────
+// PWA INSTALL
+// ────────────────────────────────────────────────
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBtn').classList.add('visible');
+});
+document.getElementById('installBtn').addEventListener('click', async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') document.getElementById('installBtn').classList.remove('visible');
+    deferredPrompt = null;
+  }
+});
+
+// ────────────────────────────────────────────────
+// SERVICE WORKER
+// ────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// ────────────────────────────────────────────────
+// INIT
+// ────────────────────────────────────────────────
+render();
+</script>
 </body>
 </html>
