@@ -1,0 +1,1 @@
+document.getElementById("workoutContainer").innerHTML='<div class="card">Workout Loaded</div>';
