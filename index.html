@@ -8,17 +8,21 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
 <header>
   <h1>Lean Muscle Tracker</h1>
-  <select>
-    <option>Beginner</option>
-    <option>Advanced</option>
+  <select id="levelToggle">
+    <option value="beginner">Beginner</option>
+    <option value="advanced">Advanced</option>
   </select>
 </header>
+
 <main id="workoutContainer"></main>
+
 <footer>
-  <button onclick="alert('Progress coming soon')">📊 Progress</button>
+  <button onclick="showSummary()">📊 Progress</button>
 </footer>
+
 <script src="app.js"></script>
 </body>
 </html>
