@@ -1,22 +1,8 @@
 {
-  "name": "FitTrack Pro Workout",
-  "short_name": "FitTrack",
-  "description": "4-Day Upper/Lower Strength & Hypertrophy Split Tracker",
+  "name": "Lean Muscle Tracker",
+  "short_name": "LeanMuscle",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#f8f9fa",
-  "theme_color": "#1a73e8",
-  "icons": [
-    {
-      "src": "https://cdn-icons-png.flaticon.com",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "https://cdn-icons-png.flaticon.com",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ]
+  "background_color": "#020617",
+  "theme_color": "#020617"
 }
