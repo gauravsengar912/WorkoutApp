@@ -1,4 +1,4 @@
-const CACHE = 'forge-v1';
+const CACHE = 'forge-v2';  // ← bumped from v1 to v2, forces old cache to clear
 const ASSETS = [
   './',
   './index.html',
