@@ -382,58 +382,147 @@ async function callGroq(apiKey, modelName, prompt) {
 }
 
 function buildPrompt(resume, jobType, expLevel, industry, location) {
-  return `You are a professional career coach and job matching AI. Analyze this resume and generate realistic, detailed job listings found on major job boards (LinkedIn, Indeed, Glassdoor, Naukri, AngelList, Dice, ZipRecruiter, Monster, Wellfound).
-
-RESUME:
-${resume}
-
-PREFERENCES:
-- Job Type: ${jobType}
-- Experience Level: ${expLevel}
-- Industry: ${industry}
-- Location: ${location || 'Open / any'}
-
-Generate exactly 12 realistic job listings that match this resume. Use real-sounding company names, realistic salary ranges for the market, and genuine job descriptions.
-
-Respond ONLY with valid JSON:
-\`\`\`json
-{
-  "profile": {
-    "currentRole": "inferred role",
-    "topSkills": ["skill1","skill2","skill3","skill4","skill5"],
-    "experienceYears": 5
-  },
-  "jobs": [
-    {
-      "id": "j1",
-      "title": "Job Title",
-      "company": "Company Name",
-      "location": "City, Country / Remote",
-      "type": "Full-time",
-      "board": "LinkedIn",
-      "boardColor": "#0a66c2",
-      "salary": "$90,000 – $120,000/yr",
-      "postedDays": 2,
-      "score": 87,
-      "applyUrl": "https://linkedin.com/jobs/view/1234567890",
-      "matchedSkills": ["Python","React","SQL"],
-      "missingSkills": ["Kubernetes"],
-      "reason": "Strong alignment on core tech stack. Python and React requirements match your 4+ years background.",
-      "description": "Build and maintain scalable data pipelines for our ML platform."
-    }
-  ]
+  return `You are a professional career coach and job matching AI for the Indian market. Analyze this resume and generate realistic, detailed job listings found on major job boards (Naukri, LinkedIn India, Indeed India, Hirist, Cutshort, Wellfound, Monster India).
+ 
+ RESUME:
+ ${resume}
+ 
+ PREFERENCES:
+ - Job Type: ${jobType}
+ - Experience Level: ${expLevel}
+ - Industry: ${industry}
+ - Location: ${location || 'India / Remote'}
+ 
+ Generate exactly 12 realistic job listings that match this resume. Use real-sounding company names, realistic salary ranges for the Indian market (using INR Lakhs Per Annum - LPA), and genuine job descriptions.
+ 
+ Respond ONLY with valid JSON:
+ \`\`\`json
+ {
+   "profile": {
+     "currentRole": "inferred role",
+     "topSkills": ["skill1","skill2","skill3","skill4","skill5"],
+     "experienceYears": 5
+   },
+   "jobs": [
+     {
+       "id": "j1",
+       "title": "Software Engineer",
+       "company": "TechCorp India",
+       "location": "Bangalore, India",
+       "type": "Full-time",
+       "board": "Naukri",
+       "boardColor": "#00214c",
+       "salary": "₹12L – ₹18L LPA",
+       "postedDays": 2,
+       "score": 87,
+       "applyUrl": "https://naukri.com/job/123",
+       "matchedSkills": ["Java","Spring Boot","MySQL"],
+       "missingSkills": ["Docker"],
+       "reason": "Strong alignment on backend stack. Your Java experience matches perfectly with their high-scale requirements.",
+       "description": "Develop and maintain robust backend services using Java and Spring Boot."
+     }
+   ]
+ }
+ \`\`\`
+ 
+ Rules:
+ - Salaries: MUST ALWAYS be in INR (₹) and use the LPA (Lakhs Per Annum) format.
+ - Boards: Use a mix of Naukri, LinkedIn, Hirist, Cutshort, AngelList.
+ - Jobs: Make them diverse and highly relevant to the provided resume.
+ - Output ONLY JSON.`;
 }
-\`\`\`
 
-Rules:
-- Scores: 60–97, varied realistically based on actual resume fit
-- Use these boards (mix them): LinkedIn, Indeed, Glassdoor, Naukri, AngelList, Dice, ZipRecruiter
-- applyUrl must follow real patterns: linkedin.com/jobs/view/XXXXXXXXXX, indeed.com/viewjob?jk=XXXXXXXX, etc.
-- matchedSkills: 2–5 skills from the resume that match the job
-- missingSkills: 0–3 realistic gaps
-- Make all 12 jobs diverse in role, seniority, company size, and board
-- Salary should reflect real market rates
-- Output ONLY the JSON block, no extra text`;
+async function handleApply(jobId) {
+  const job = allJobs.find(j => j.id === jobId);
+  if (!job) return;
+
+  const btn = document.querySelector(`.apply-btn[onclick*="${jobId}"]`);
+  const originalHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner" style="width:12px;height:12px;margin:0"></span> Tailoring...`;
+
+  try {
+    const resumeText = document.getElementById('resumeText').value;
+    const tailoredContent = await generateTailoredResume(resumeText, job);
+    
+    downloadResume(tailoredContent, job);
+    showToast(`✓ Resume tailored & downloaded for ${job.company}`);
+    
+    // Open application link
+    if (job.applyUrl) {
+      window.open(job.applyUrl, '_blank');
+    }
+  } catch (err) {
+    showToast('Failed to tailor resume: ' + err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+  }
+}
+
+async function generateTailoredResume(originalResume, job) {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const modelId = document.getElementById('modelId').value.trim();
+  
+  const prompt = `You are an expert Resume Strategist. Rewrite the following resume to perfectly match the provided job description. 
+  
+  JOB TITLE: ${job.title}
+  COMPANY: ${job.company}
+  JOB DESCRIPTION: ${job.description}
+  
+  ORIGINAL RESUME:
+  ${originalResume}
+  
+  TASK:
+  1. Highlight relevant skills and experiences.
+  2. Use keywords from the job description naturally.
+  3. Format the output as clean, semantic HTML sections (e.g., <h1>Name</h1>, <div class="section"><h2>Summary</h2>...</div>).
+  4. Do NOT invent fake experience. Only rephrase existing ones to be more relevant.
+  5. Respond ONLY with the HTML content for the resume body.`;
+
+  return await callGroq(apiKey, modelId, prompt);
+}
+
+function downloadResume(htmlContent, job) {
+  const finalHTML = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Tailored Resume - ${job.company}</title>
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; line-height: 1.6; color: #1a1a20; max-width: 800px; margin: 40px auto; padding: 40px; background: #fff; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
+        h1 { color: #0a0a0f; font-size: 2.2rem; border-bottom: 3px solid #c8f55a; padding-bottom: 15px; margin-bottom: 25px; }
+        h2 { color: #7b5ea7; font-size: 1.4rem; margin-top: 35px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+        .section { margin-bottom: 25px; }
+        p { margin: 10px 0; }
+        ul { padding-left: 20px; margin: 10px 0; }
+        li { margin-bottom: 8px; }
+        .contact-info { display: flex; gap: 20px; font-size: 0.9rem; color: #666; margin-bottom: 30px; border-bottom: 1px solid #f0f0f0; padding-bottom: 15px; }
+        strong { color: #0a0a0f; }
+        @media print {
+          body { margin: 0; padding: 0; box-shadow: none; }
+          button { display: none; }
+        }
+      </style>
+    </head>
+    <body>
+      ${htmlContent}
+    </body>
+    </html>
+  `;
+
+  const blob = new Blob([finalHTML], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const filename = `Resume_${job.company.replace(/\s+/g, '_')}_${new Date().getTime()}.html`;
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function renderResults(jobs, profile) {
@@ -502,7 +591,7 @@ function renderJobCards(jobs) {
           <div class="score-text" style="color:${color}">${job.score}%</div>
         </div>
         ${job.salary ? `<div class="salary-badge">${job.salary}</div>` : ''}
-        <a class="apply-btn" href="${job.applyUrl||'#'}" target="_blank" rel="noopener noreferrer">Apply Now ↗</a>
+        <button class="apply-btn" onclick="handleApply('${job.id}')">Apply Now ↗</button>
       </div>`;
     grid.appendChild(card);
   });
