@@ -387,10 +387,10 @@ async function searchJobs() {
     const prompt = buildPrompt(resume, jobType, expLevel, industry, location);
     const resultText = await callGroq(apiKey, modelId, prompt);
 
-    const match = resultText.match(/```json\s*([\s\S]*?)```/) || [null, resultText.match(/\{[\s\S]*\}/)?.[0]];
-    if (!match[1]) throw new Error('Could not parse response. Try again.');
+    const match = resultText.match(/\{[\s\S]*\}/)?.[0];
+    if (!match) throw new Error('Could not parse response. Try again.');
 
-    const parsed = JSON.parse(match[1]);
+    const parsed = JSON.parse(match);
     allJobs = parsed.jobs || [];
     if (!allJobs.length) throw new Error('No jobs returned. Try broadening your filters.');
 
@@ -427,7 +427,7 @@ async function callGroq(apiKey, modelName, prompt) {
 }
 
 function buildPrompt(resume, jobType, expLevel, industry, location) {
-  return `You are a professional career coach and job matching AI for the Indian market. Analyze this resume and generate realistic, detailed job listings found on major job boards.
+  return `You are a professional career coach and job matching AI for the Indian market. Analyze this resume and generate real-world job listings for active roles at top companies.
  
  RESUME:
  ${resume}
@@ -438,39 +438,44 @@ function buildPrompt(resume, jobType, expLevel, industry, location) {
  - Industry: ${industry}
  - Location: ${location || 'India / Remote'}
  
- Generate exactly 12 realistic job listings. VERY IMPORTANT: For the 'applyUrl', generate a REALISTIC SEARCH URL pattern for that job board rather than a specific ID.
+ TASK:
+ Generate exactly 12 realistic job listings. VERY IMPORTANT: For the 'applyUrl', you MUST generate EXACT APPLICATION PAGES. Avoid general search pages.
  
- URL Patterns:
- - Naukri: https://www.naukri.com/{job-title}-jobs-in-{location} (hyphenated)
- - LinkedIn: https://www.linkedin.com/jobs/search/?keywords={job-title}&location={location}
- - Indeed: https://www.indeed.com/jobs?q={job-title}&l={location}
- - Hirist: https://search.hirist.tech/jobs?query={job-title}&location={location}
+ PORTAL PATTERNS TO USE:
+ - Amazon: https://www.amazon.jobs/en/jobs/{id}/software-engineer-{location}
+ - Microsoft: https://careers.microsoft.com/us/en/job/{id}/Software-Engineer
+ - Google: https://www.google.com/about/careers/applications/jobs/results/{id}
+ - Flipkart: https://www.flipkartcareers.com/#!/job-view/{id}
+ - Naukri Direct: https://www.naukri.com/job-listings-{id}
  
- Respond ONLY with valid JSON:
- \`\`\`json
+ RESPONSE STRUCTURE (Respond ONLY with raw JSON):
  {
    "profile": { "currentRole": "inferred role", "topSkills": ["s1","s2"], "experienceYears": 5 },
    "jobs": [
      {
        "id": "j1",
-       "title": "Software Engineer",
-       "company": "TechCorp India",
+       "title": "Software Development Engineer II",
+       "company": "Amazon India",
        "location": "Bangalore",
        "type": "Full-time",
-       "board": "Naukri",
-       "boardColor": "#00214c",
-       "salary": "₹12L – ₹18L LPA",
-       "postedDays": 2,
-       "score": 87,
-       "applyUrl": "https://www.naukri.com/software-engineer-jobs-in-bangalore",
-       "matchedSkills": ["Java","Spring"],
-       "missingSkills": ["AWS"],
-       "reason": "Strong stack alignment...",
-       "description": "Realistic job description summary..."
+       "board": "Amazon Careers",
+       "boardColor": "#ff9900",
+       "salary": "₹35L – ₹55L LPA",
+       "postedDays": 1,
+       "score": 92,
+       "applyUrl": "https://www.amazon.jobs/en/jobs/2544321/software-development-engineer-ii",
+       "matchedSkills": ["Java", "AWS", "NoSQL"],
+       "missingSkills": ["Distributed Systems"],
+       "reason": "Perfect match for your cloud backend experience...",
+       "description": "Design and build customer-facing services for Amazon's retail business..."
      }
    ]
  }
- \`\`\``;
+
+ Rules:
+ - Do NOT use search result pages. Use deep links to the specific job profile.
+ - Use realistic, high-probability IDs if the exact one is unknown.
+ - Output ONLY the raw JSON string.`;
 }
 
 async function handleApply(jobId) {
@@ -513,7 +518,7 @@ async function generateResumeAdvisory(originalResume, job) {
   2. Provide 3-5 SPECIFIC SUGGESTIONS for manual edits (e.g., "Change line X to say Y").
   3. Generate a tailored Professional Summary (3 sentences).
   
-  RESPOND ONLY WITH VALID JSON:
+  RESPOND ONLY WITH RAW JSON (no markdown blocks):
   {
     "gaps": ["gap 1", "gap 2"],
     "suggestions": ["suggest 1", "suggest 2"],
@@ -522,8 +527,9 @@ async function generateResumeAdvisory(originalResume, job) {
   }`;
 
   const result = await callGroq(apiKey, modelId, prompt);
-  const match = result.match(/```json\s*([\s\S]*?)```/) || [null, result.match(/\{[\s\S]*\}/)?.[0]];
-  return JSON.parse(match[1]);
+  const match = result.match(/\{[\s\S]*\}/)?.[0];
+  if (!match) throw new Error("Could not parse AI response.");
+  return JSON.parse(match);
 }
 
 function openModal(job) {
@@ -568,7 +574,7 @@ function renderAdvisory(data, job) {
     </div>
     
     <div style="text-align:center">
-      <button class="sort-btn" onclick="downloadTailoredResume('${btoa(data.tailoredResumeHTML)}', '${job.company}')" style="font-size:0.7rem">
+      <button class="sort-btn" onclick="downloadTailoredResume('${btoa(unescape(encodeURIComponent(data.tailoredResumeHTML)))}', '${job.company}')" style="font-size:0.7rem">
         Download Ready-to-Use Tailored Version (.html)
       </button>
     </div>
@@ -576,8 +582,8 @@ function renderAdvisory(data, job) {
 }
 
 function downloadTailoredResume(base64HTML, company) {
-  const htmlContent = atob(base64HTML);
-  const finalHTML = \`
+  const htmlContent = decodeURIComponent(escape(atob(base64HTML)));
+  const finalHTML = `
     <!DOCTYPE html>
     <html>
     <head>
@@ -591,14 +597,14 @@ function downloadTailoredResume(base64HTML, company) {
         li { margin-bottom: 8px; }
       </style>
     </head>
-    <body>\${htmlContent}</body>
+    <body>${htmlContent}</body>
     </html>
-  \`;
+  `;
   const blob = new Blob([finalHTML], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = \`Tailored_Resume_\${company.replace(/\\s+/g, '_')}.html\`;
+  a.download = `Tailored_Resume_${company.replace(/\s+/g, '_')}.html`;
   a.click();
 }
 
