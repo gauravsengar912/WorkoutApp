@@ -111,8 +111,30 @@
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  /* Modal Styles */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 1000; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; padding: 1.5rem; }
+  .modal-overlay.show { display: flex; opacity: 1; }
+  .modal-container { background: var(--surface); border: 1px solid var(--border); border-radius: 1.5rem; width: 100%; max-width: 720px; max-height: 90vh; overflow-y: auto; position: relative; animation: modalUp 0.4s ease both; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+  @keyframes modalUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-header { padding: 2rem 2.5rem 1.5rem; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); z-index: 2; display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; }
+  .modal-close { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+  .modal-close:hover { border-color: var(--danger); color: var(--danger); }
+  .modal-body { padding: 2.5rem; }
+  .advisory-section { margin-bottom: 2.5rem; animation: fadeUp 0.5s ease both; }
+  .advisory-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.9rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.75rem; }
+  .advisory-title::after { content: ''; flex: 1; height: 1px; background: rgba(200,245,90,0.15); }
+  .gap-card { background: rgba(255,107,107,0.05); border: 1px solid rgba(255,107,107,0.15); border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1rem; color: var(--danger); font-size: 0.82rem; line-height: 1.6; }
+  .suggestion-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1rem; position: relative; padding-left: 3.5rem; }
+  .suggestion-num { position: absolute; left: 1.25rem; top: 1.25rem; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.2rem; color: var(--accent2); opacity: 0.4; }
+  .suggestion-text { font-size: 0.82rem; line-height: 1.7; color: var(--text); }
+  .modal-footer { padding: 1.5rem 2.5rem 2rem; border-top: 1px solid var(--border); display: flex; gap: 1rem; flex-wrap: wrap; position: sticky; bottom: 0; background: var(--surface); z-index: 2; }
+  .modal-btn { flex: 1; min-width: 180px; }
+  .modal-btn.secondary { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
+  .modal-btn.secondary:hover { border-color: var(--accent); }
+
   @media (max-width: 640px) {
     header { padding: 1.25rem 1.5rem; }
+
     main { padding: 2rem 1rem; }
     .job-card { grid-template-columns: 1fr; }
     .job-right { flex-direction: row; align-items: center; justify-content: space-between; }
@@ -234,6 +256,29 @@
     <div class="jobs-grid" id="jobsGrid"></div>
   </div>
 </main>
+
+<div class="modal-overlay" id="advisoryModal">
+  <div class="modal-container">
+    <div class="modal-header">
+      <div>
+        <div id="modalCompany" style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.15em;margin-bottom:0.5rem">Company Name</div>
+        <div id="modalJobTitle" class="results-title" style="font-size:1.3rem">Software Engineer</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="advisoryBody">
+      <!-- Content populated by JS -->
+    </div>
+    <div class="modal-footer">
+      <button class="cta-btn secondary modal-btn" onclick="closeModal()">Close</button>
+      <a id="modalApplyLink" href="#" target="_blank" class="cta-btn modal-btn">
+        Go to Application ↗
+      </a>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -382,7 +427,7 @@ async function callGroq(apiKey, modelName, prompt) {
 }
 
 function buildPrompt(resume, jobType, expLevel, industry, location) {
-  return `You are a professional career coach and job matching AI for the Indian market. Analyze this resume and generate realistic, detailed job listings found on major job boards (Naukri, LinkedIn India, Indeed India, Hirist, Cutshort, Wellfound, Monster India).
+  return `You are a professional career coach and job matching AI for the Indian market. Analyze this resume and generate realistic, detailed job listings found on major job boards.
  
  RESUME:
  ${resume}
@@ -393,43 +438,39 @@ function buildPrompt(resume, jobType, expLevel, industry, location) {
  - Industry: ${industry}
  - Location: ${location || 'India / Remote'}
  
- Generate exactly 12 realistic job listings that match this resume. Use real-sounding company names, realistic salary ranges for the Indian market (using INR Lakhs Per Annum - LPA), and genuine job descriptions.
+ Generate exactly 12 realistic job listings. VERY IMPORTANT: For the 'applyUrl', generate a REALISTIC SEARCH URL pattern for that job board rather than a specific ID.
+ 
+ URL Patterns:
+ - Naukri: https://www.naukri.com/{job-title}-jobs-in-{location} (hyphenated)
+ - LinkedIn: https://www.linkedin.com/jobs/search/?keywords={job-title}&location={location}
+ - Indeed: https://www.indeed.com/jobs?q={job-title}&l={location}
+ - Hirist: https://search.hirist.tech/jobs?query={job-title}&location={location}
  
  Respond ONLY with valid JSON:
  \`\`\`json
  {
-   "profile": {
-     "currentRole": "inferred role",
-     "topSkills": ["skill1","skill2","skill3","skill4","skill5"],
-     "experienceYears": 5
-   },
+   "profile": { "currentRole": "inferred role", "topSkills": ["s1","s2"], "experienceYears": 5 },
    "jobs": [
      {
        "id": "j1",
        "title": "Software Engineer",
        "company": "TechCorp India",
-       "location": "Bangalore, India",
+       "location": "Bangalore",
        "type": "Full-time",
        "board": "Naukri",
        "boardColor": "#00214c",
        "salary": "₹12L – ₹18L LPA",
        "postedDays": 2,
        "score": 87,
-       "applyUrl": "https://naukri.com/job/123",
-       "matchedSkills": ["Java","Spring Boot","MySQL"],
-       "missingSkills": ["Docker"],
-       "reason": "Strong alignment on backend stack. Your Java experience matches perfectly with their high-scale requirements.",
-       "description": "Develop and maintain robust backend services using Java and Spring Boot."
+       "applyUrl": "https://www.naukri.com/software-engineer-jobs-in-bangalore",
+       "matchedSkills": ["Java","Spring"],
+       "missingSkills": ["AWS"],
+       "reason": "Strong stack alignment...",
+       "description": "Realistic job description summary..."
      }
    ]
  }
- \`\`\`
- 
- Rules:
- - Salaries: MUST ALWAYS be in INR (₹) and use the LPA (Lakhs Per Annum) format.
- - Boards: Use a mix of Naukri, LinkedIn, Hirist, Cutshort, AngelList.
- - Jobs: Make them diverse and highly relevant to the provided resume.
- - Output ONLY JSON.`;
+ \`\`\``;
 }
 
 async function handleApply(jobId) {
@@ -439,90 +480,126 @@ async function handleApply(jobId) {
   const btn = document.querySelector(`.apply-btn[onclick*="${jobId}"]`);
   const originalHTML = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = `<span class="spinner" style="width:12px;height:12px;margin:0"></span> Tailoring...`;
+  btn.innerHTML = `<span class="spinner" style="width:12px;height:12px;margin:0"></span> Analyzing...`;
 
   try {
     const resumeText = document.getElementById('resumeText').value;
-    const tailoredContent = await generateTailoredResume(resumeText, job);
+    openModal(job);
     
-    downloadResume(tailoredContent, job);
-    showToast(`✓ Resume tailored & downloaded for ${job.company}`);
+    const advisory = await generateResumeAdvisory(resumeText, job);
+    renderAdvisory(advisory, job);
     
-    // Open application link
-    if (job.applyUrl) {
-      window.open(job.applyUrl, '_blank');
-    }
   } catch (err) {
-    showToast('Failed to tailor resume: ' + err.message, true);
+    showToast('Advisory failed: ' + err.message, true);
+    closeModal();
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHTML;
   }
 }
 
-async function generateTailoredResume(originalResume, job) {
+async function generateResumeAdvisory(originalResume, job) {
   const apiKey = document.getElementById('apiKey').value.trim();
   const modelId = document.getElementById('modelId').value.trim();
   
-  const prompt = `You are an expert Resume Strategist. Rewrite the following resume to perfectly match the provided job description. 
+  const prompt = `You are an expert Resume Strategist. Analyze the user's resume against the specific job description and provide actionable advice.
   
-  JOB TITLE: ${job.title}
-  COMPANY: ${job.company}
-  JOB DESCRIPTION: ${job.description}
-  
-  ORIGINAL RESUME:
-  ${originalResume}
+  JOB: ${job.title} at ${job.company}
+  JD: ${job.description}
+  RESUME: ${originalResume}
   
   TASK:
-  1. Highlight relevant skills and experiences.
-  2. Use keywords from the job description naturally.
-  3. Format the output as clean, semantic HTML sections (e.g., <h1>Name</h1>, <div class="section"><h2>Summary</h2>...</div>).
-  4. Do NOT invent fake experience. Only rephrase existing ones to be more relevant.
-  5. Respond ONLY with the HTML content for the resume body.`;
+  1. Identify 2-3 CRITICAL GAPS where the resume fails to meet the JD.
+  2. Provide 3-5 SPECIFIC SUGGESTIONS for manual edits (e.g., "Change line X to say Y").
+  3. Generate a tailored Professional Summary (3 sentences).
+  
+  RESPOND ONLY WITH VALID JSON:
+  {
+    "gaps": ["gap 1", "gap 2"],
+    "suggestions": ["suggest 1", "suggest 2"],
+    "tailoredSummary": "AI generated summary...",
+    "tailoredResumeHTML": "HTML content of a full tailored resume (for download option)"
+  }`;
 
-  return await callGroq(apiKey, modelId, prompt);
+  const result = await callGroq(apiKey, modelId, prompt);
+  const match = result.match(/```json\s*([\s\S]*?)```/) || [null, result.match(/\{[\s\S]*\}/)?.[0]];
+  return JSON.parse(match[1]);
 }
 
-function downloadResume(htmlContent, job) {
-  const finalHTML = `
+function openModal(job) {
+  document.getElementById('modalCompany').textContent = job.company;
+  document.getElementById('modalJobTitle').textContent = job.title;
+  document.getElementById('modalApplyLink').href = job.applyUrl;
+  document.getElementById('advisoryBody').innerHTML = `
+    <div style="text-align:center;padding:3rem">
+      <div class="spinner" style="width:32px;height:32px"></div>
+      <div class="loading-text">AI is auditing your resume for this role...</div>
+    </div>`;
+  document.getElementById('advisoryModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('advisoryModal').classList.remove('show');
+}
+
+function renderAdvisory(data, job) {
+  const body = document.getElementById('advisoryBody');
+  body.innerHTML = `
+    <div class="advisory-section">
+      <div class="advisory-title">Critical Gaps Detected</div>
+      ${data.gaps.map(g => `<div class="gap-card">⚠️ ${g}</div>`).join('')}
+    </div>
+    
+    <div class="advisory-section">
+      <div class="advisory-title">Required Resume Changes</div>
+      ${data.suggestions.map((s, i) => `
+        <div class="suggestion-item">
+          <div class="suggestion-num">0${i+1}</div>
+          <div class="suggestion-text">${s}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="advisory-section">
+      <div class="advisory-title">Optimized Summary (Copy/Paste)</div>
+      <div class="gap-card" style="background:rgba(200,245,90,0.05);border-color:rgba(200,245,90,0.2);color:var(--text);font-style:italic">
+        "${data.tailoredSummary}"
+      </div>
+    </div>
+    
+    <div style="text-align:center">
+      <button class="sort-btn" onclick="downloadTailoredResume('${btoa(data.tailoredResumeHTML)}', '${job.company}')" style="font-size:0.7rem">
+        Download Ready-to-Use Tailored Version (.html)
+      </button>
+    </div>
+  `;
+}
+
+function downloadTailoredResume(base64HTML, company) {
+  const htmlContent = atob(base64HTML);
+  const finalHTML = \`
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Tailored Resume - ${job.company}</title>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; line-height: 1.6; color: #1a1a20; max-width: 800px; margin: 40px auto; padding: 40px; background: #fff; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
-        h1 { color: #0a0a0f; font-size: 2.2rem; border-bottom: 3px solid #c8f55a; padding-bottom: 15px; margin-bottom: 25px; }
-        h2 { color: #7b5ea7; font-size: 1.4rem; margin-top: 35px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
-        .section { margin-bottom: 25px; }
-        p { margin: 10px 0; }
-        ul { padding-left: 20px; margin: 10px 0; }
+        body { font-family: 'Inter', sans-serif; line-height: 1.6; color: #1a1a20; max-width: 800px; margin: 40px auto; padding: 40px; }
+        h1 { font-size: 2.2rem; border-bottom: 3px solid #c8f55a; padding-bottom: 10px; }
+        h2 { color: #7b5ea7; margin-top: 30px; border-bottom: 1px solid #eee; }
+        ul { padding-left: 20px; }
         li { margin-bottom: 8px; }
-        .contact-info { display: flex; gap: 20px; font-size: 0.9rem; color: #666; margin-bottom: 30px; border-bottom: 1px solid #f0f0f0; padding-bottom: 15px; }
-        strong { color: #0a0a0f; }
-        @media print {
-          body { margin: 0; padding: 0; box-shadow: none; }
-          button { display: none; }
-        }
       </style>
     </head>
-    <body>
-      ${htmlContent}
-    </body>
+    <body>\${htmlContent}</body>
     </html>
-  `;
-
+  \`;
   const blob = new Blob([finalHTML], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const filename = `Resume_${job.company.replace(/\s+/g, '_')}_${new Date().getTime()}.html`;
   a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
+  a.download = \`Tailored_Resume_\${company.replace(/\\s+/g, '_')}.html\`;
   a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 }
 
 function renderResults(jobs, profile) {
