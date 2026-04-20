@@ -4,6 +4,11 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>JobMatch AI — Free Resume-Powered Job Search</title>
+<script>
+window.JOBMATCH_CONFIG = window.JOBMATCH_CONFIG || {
+  cerebrasProxyUrl: ''
+};
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
@@ -332,12 +337,12 @@ h1{font-size:2rem}
 <div class="overlay" id="modal">
   <div class="modal">
     <h2>Connect Cerebras + Gemini</h2>
-    <p class="modal-sub">Paste both keys below. Cerebras checks your resume and Gemini ranks the live jobs. Keys are saved only in this browser.</p>
+    <p class="modal-sub">Paste your Gemini key below. Cerebras should run through a proxy on static hosting like `file://` or GitHub Pages, so your Cerebras key stays server-side.</p>
     <input class="inp" type="password" id="cerebrasKeyIn" placeholder="Cerebras API key" autocomplete="off"/>
     <input class="inp" type="password" id="geminiKeyIn" placeholder="Gemini API key (AIzaSy...)" autocomplete="off"/>
     <div class="free-note">
       ✅ &nbsp;<strong>Cerebras:</strong> get a key at
-      <a href="https://cloud.cerebras.ai/" target="_blank">cloud.cerebras.ai</a> for resume analysis.<br>
+      <a href="https://cloud.cerebras.ai/" target="_blank">cloud.cerebras.ai</a> for resume analysis. On `file://` or GitHub Pages, put that key in a proxy instead of the browser.<br>
       ✅ &nbsp;<strong>Gemini:</strong> get a key at
       <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a> for job ranking.
     </div>
@@ -363,20 +368,32 @@ let cachedProfile=null; // cache parsed resume so we don't re-call Gemini on ret
 let rlTimerInterval=null;
 const CEREBRAS_BASE_URL='https://api.cerebras.ai/v1';
 const CEREBRAS_MODEL='gpt-oss-120b';
+const CEREBRAS_PROXY_URL='http://127.0.0.1:8787/api/cerebras';
 
 // ── key ───────────────────────────────────────────────────────────────────────
 const getGeminiKey=()=>localStorage.getItem('gm_key')||'';
 const getCerebrasKey=()=>localStorage.getItem('cb_key')||'';
+const getConfiguredCerebrasProxy=()=>window.JOBMATCH_CONFIG?.cerebrasProxyUrl||localStorage.getItem('cerebras_proxy_url')||'';
+const isGithubPages=()=>/github\.io$/i.test(location.hostname);
+const needsCerebrasProxy=()=>location.protocol==='file:'||isGithubPages();
+const getActiveCerebrasProxyUrl=()=>needsCerebrasProxy()?(getConfiguredCerebrasProxy()||CEREBRAS_PROXY_URL):'';
 function updateKeyUI(){
   const gemini=getGeminiKey(), cerebras=getCerebrasKey(), btn=document.getElementById('keyBtn');
-  const bothReady=Boolean(gemini&&cerebras);
-  document.getElementById('keyDot').style.background=bothReady?'var(--emerald)':(gemini||cerebras)?'var(--amber)':'var(--text-dim)';
-  document.getElementById('keyLbl').textContent=bothReady?'Cerebras + Gemini Connected':(gemini||cerebras)?'Finish API Setup':'Add API Keys';
-  btn.className='key-btn'+(bothReady?' ok':'');
+  const ready=needsCerebrasProxy()?Boolean(gemini&&getActiveCerebrasProxyUrl()):Boolean(gemini&&cerebras);
+  document.getElementById('keyDot').style.background=ready?'var(--emerald)':(gemini||cerebras)?'var(--amber)':'var(--text-dim)';
+  document.getElementById('keyLbl').textContent=
+    ready
+      ? (needsCerebrasProxy()?'Gemini + Cerebras Proxy Ready':'Cerebras + Gemini Connected')
+      : (gemini||cerebras)?'Finish API Setup':'Add API Keys';
+  btn.className='key-btn'+(ready?' ok':'');
   checkReady();
 }
 function openModal(){
-  document.getElementById('cerebrasKeyIn').value=getCerebrasKey();
+  const cerebrasInput=document.getElementById('cerebrasKeyIn');
+  cerebrasInput.value=getCerebrasKey();
+  cerebrasInput.disabled=needsCerebrasProxy();
+  cerebrasInput.placeholder=needsCerebrasProxy()?'Set Cerebras key in proxy env':'Cerebras API key';
+  cerebrasInput.style.opacity=needsCerebrasProxy()?'.55':'1';
   document.getElementById('geminiKeyIn').value=getGeminiKey();
   document.getElementById('modal').classList.add('open');
 }
@@ -384,8 +401,8 @@ function closeModal(){document.getElementById('modal').classList.remove('open')}
 function saveKeys(){
   const cerebras=document.getElementById('cerebrasKeyIn').value.trim();
   const gemini=document.getElementById('geminiKeyIn').value.trim();
-  if(!cerebras||!gemini){toast('Paste both API keys','err');return;}
-  localStorage.setItem('cb_key',cerebras);
+  if(!gemini || (!needsCerebrasProxy() && !cerebras)){toast(needsCerebrasProxy()?'Paste your Gemini API key':'Paste both API keys','err');return;}
+  if(cerebras) localStorage.setItem('cb_key',cerebras);
   localStorage.setItem('gm_key',gemini);
   closeModal();updateKeyUI();toast('API keys saved ✓','ok');
 }
@@ -416,7 +433,8 @@ async function extractPDF(file){
   return out.trim();
 }
 function checkReady(){
-  if(!isRunning) document.getElementById('goBtn').disabled=!(cvText&&getGeminiKey()&&getCerebrasKey());
+  const cerebrasReady=needsCerebrasProxy()?Boolean(getActiveCerebrasProxyUrl()):Boolean(getCerebrasKey());
+  if(!isRunning) document.getElementById('goBtn').disabled=!(cvText&&getGeminiKey()&&cerebrasReady);
 }
 
 // ── log / progress ────────────────────────────────────────────────────────────
@@ -490,8 +508,28 @@ function normalizeCandidate(profile){
 
 // ── Cerebras resume analysis ───────────────────────────────────────────────────
 async function cerebrasAnalyzeResume(resumeText){
-  if(location.protocol==='file:'){
-    throw new Error('Cerebras browser-side calls from a local file are not reliable. Use a small backend/proxy for gpt-oss-120b instead.');
+  if(needsCerebrasProxy()){
+    const proxyUrl=getActiveCerebrasProxyUrl();
+    if(!proxyUrl){
+      throw new Error(isGithubPages()
+        ? 'GitHub Pages needs a deployed Cerebras proxy URL. Set window.JOBMATCH_CONFIG.cerebrasProxyUrl or localStorage.cerebras_proxy_url.'
+        : 'Local Cerebras proxy is not configured. Start cerebras-proxy.js on port 8787 or set cerebras_proxy_url.');
+    }
+    let res;
+    try{
+      res=await fetch(proxyUrl,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({resumeText})
+      });
+    }catch{
+      throw new Error(isGithubPages()
+        ? `Cerebras proxy is unreachable at ${proxyUrl}.`
+        : `Local Cerebras proxy is not running at ${proxyUrl}. Start cerebras-proxy.js on port 8787.`);
+    }
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data?.error||'Cerebras proxy request failed.');
+    return normalizeCandidate(data);
   }
   const res=await fetch(`${CEREBRAS_BASE_URL}/chat/completions`,{
     method:'POST',
@@ -542,7 +580,7 @@ async function cerebrasAnalyzeResume(resumeText){
     const err=await res.json().catch(()=>({}));
     const baseMsg=err?.error?.message||`Cerebras ${res.status}`;
     if(res.status===404){
-      throw new Error(`${baseMsg} (endpoint: ${CEREBRAS_BASE_URL}/chat/completions, model: ${CEREBRAS_MODEL}). If this page is running from file://, move the Cerebras call behind a backend proxy.`);
+      throw new Error(`${baseMsg} (endpoint: ${CEREBRAS_BASE_URL}/chat/completions, model: ${CEREBRAS_MODEL}).`);
     }
     throw new Error(baseMsg);
   }
@@ -786,9 +824,11 @@ Rules:
     if(msg.includes('429')||msg.includes('Rate limit')||msg.includes('quota')){
       toast('Rate limit: wait ~1 min then retry','err');
       addLog('Rate limit exceeded — wait 60s and click Search again','warn');
-    }else if(msg.includes('Cerebras browser-side calls')||msg.includes('backend proxy')){
-      toast('Cerebras needs a backend proxy from this local page','err');
-      addLog('Cerebras call blocked on a local browser page — gpt-oss-120b should be called from a backend/proxy','warn');
+    }else if(msg.includes('Cerebras proxy')||msg.includes('proxy URL')){
+      toast(isGithubPages()?'Configure a deployed Cerebras proxy URL':'Start the local Cerebras proxy on port 8787','err');
+      addLog(isGithubPages()
+        ? 'GitHub Pages needs an external Cerebras proxy URL set in JOBMATCH_CONFIG or localStorage.cerebras_proxy_url'
+        : 'Cerebras resume parsing now expects the local proxy at http://127.0.0.1:8787/api/cerebras','warn');
     }else{
       toast('Error: '+msg,'err');
     }
