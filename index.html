@@ -257,12 +257,12 @@ h1{font-size:2rem}
   </div>
   <button class="key-btn" id="keyBtn" onclick="openModal()">
     <span class="dot" id="keyDot"></span>
-    <span id="keyLbl">Add Gemini Key</span>
+    <span id="keyLbl">Add API Keys</span>
   </button>
 </nav>
 
 <section id="heroSection" class="z1">
-  <div class="badge"><span class="badge-dot"></span>Powered by Google Gemini 2.0 Flash (Free) + Live Job APIs</div>
+  <div class="badge"><span class="badge-dot"></span>Powered by Cerebras + Google Gemini + Live Job APIs</div>
   <h1>Your resume.<br><span class="grad">Your perfect jobs.</span></h1>
   <p class="hero-p">Upload your PDF resume and get AI-matched jobs scraped live from multiple free job boards — scored and ranked. No paid APIs. No credit card.</p>
   <div class="drop-wrap">
@@ -290,6 +290,7 @@ h1{font-size:2rem}
     <span class="src-tag hi">The Muse</span>
     <span style="margin:0 4px">·</span>
     <span>AI by</span>
+    <span class="src-tag hi">Cerebras</span>
     <span class="src-tag hi">Gemini 2.0 Flash</span>
     <span style="color:var(--emerald);font-size:.7rem">✓ Always free tier</span>
   </div>
@@ -330,22 +331,21 @@ h1{font-size:2rem}
 <!-- MODAL -->
 <div class="overlay" id="modal">
   <div class="modal">
-    <h2>Google Gemini API Key</h2>
-    <p class="modal-sub">Get a free key (no credit card needed) at
-      <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a>.
-      Your key is saved only in this browser.</p>
-    <input class="inp" type="password" id="keyIn" placeholder="AIzaSy..." autocomplete="off"/>
+    <h2>Connect Cerebras + Gemini</h2>
+    <p class="modal-sub">Paste both keys below. Cerebras checks your resume and Gemini ranks the live jobs. Keys are saved only in this browser.</p>
+    <input class="inp" type="password" id="cerebrasKeyIn" placeholder="Cerebras API key" autocomplete="off"/>
+    <input class="inp" type="password" id="geminiKeyIn" placeholder="Gemini API key (AIzaSy...)" autocomplete="off"/>
     <div class="free-note">
-      ✅ &nbsp;<strong>Gemini 2.0 Flash is 100% free</strong> — 15 requests/min,
-      1 million tokens/day. Just sign in with Google, click "Get API Key", and paste it here.
+      ✅ &nbsp;<strong>Cerebras:</strong> get a key at
+      <a href="https://cloud.cerebras.ai/" target="_blank">cloud.cerebras.ai</a> for resume analysis.<br>
+      ✅ &nbsp;<strong>Gemini:</strong> get a key at
+      <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a> for job ranking.
     </div>
     <div class="rl-note">
-      ⚠️ &nbsp;<strong>Rate limit tip:</strong> Each job search uses 2 API calls. If you hit
-      a 429 error, the app auto-retries after 65 seconds. Avoid clicking Search multiple times
-      in quick succession.
+      ⚠️ &nbsp;<strong>Flow:</strong> Cerebras reads the resume first, then Gemini scores the jobs. If Gemini hits rate limits, the app retries briefly and then stops cleanly so you can retry later.
     </div>
     <div class="modal-row">
-      <button class="btn-s" onclick="saveKey()">Save &amp; Continue</button>
+      <button class="btn-s" onclick="saveKeys()">Save &amp; Continue</button>
       <button class="btn-x" onclick="closeModal()">Cancel</button>
     </div>
   </div>
@@ -361,22 +361,33 @@ let cvText='', allJobs=[], curFilter='all', curSort='score';
 let isRunning=false;  // prevent double-clicks / concurrent runs
 let cachedProfile=null; // cache parsed resume so we don't re-call Gemini on retry
 let rlTimerInterval=null;
+const CEREBRAS_BASE_URL='https://api.cerebras.ai/v1';
+const CEREBRAS_MODEL='gpt-oss-120b';
 
 // ── key ───────────────────────────────────────────────────────────────────────
-const getKey=()=>localStorage.getItem('gm_key')||'';
+const getGeminiKey=()=>localStorage.getItem('gm_key')||'';
+const getCerebrasKey=()=>localStorage.getItem('cb_key')||'';
 function updateKeyUI(){
-  const k=getKey(),btn=document.getElementById('keyBtn');
-  document.getElementById('keyDot').style.background=k?'var(--emerald)':'var(--text-dim)';
-  document.getElementById('keyLbl').textContent=k?'Gemini Connected':'Add Gemini Key';
-  btn.className='key-btn'+(k?' ok':'');
+  const gemini=getGeminiKey(), cerebras=getCerebrasKey(), btn=document.getElementById('keyBtn');
+  const bothReady=Boolean(gemini&&cerebras);
+  document.getElementById('keyDot').style.background=bothReady?'var(--emerald)':(gemini||cerebras)?'var(--amber)':'var(--text-dim)';
+  document.getElementById('keyLbl').textContent=bothReady?'Cerebras + Gemini Connected':(gemini||cerebras)?'Finish API Setup':'Add API Keys';
+  btn.className='key-btn'+(bothReady?' ok':'');
   checkReady();
 }
-function openModal(){document.getElementById('keyIn').value=getKey();document.getElementById('modal').classList.add('open')}
+function openModal(){
+  document.getElementById('cerebrasKeyIn').value=getCerebrasKey();
+  document.getElementById('geminiKeyIn').value=getGeminiKey();
+  document.getElementById('modal').classList.add('open');
+}
 function closeModal(){document.getElementById('modal').classList.remove('open')}
-function saveKey(){
-  const v=document.getElementById('keyIn').value.trim();
-  if(!v){toast('Paste your API key','err');return;}
-  localStorage.setItem('gm_key',v);closeModal();updateKeyUI();toast('Key saved ✓','ok');
+function saveKeys(){
+  const cerebras=document.getElementById('cerebrasKeyIn').value.trim();
+  const gemini=document.getElementById('geminiKeyIn').value.trim();
+  if(!cerebras||!gemini){toast('Paste both API keys','err');return;}
+  localStorage.setItem('cb_key',cerebras);
+  localStorage.setItem('gm_key',gemini);
+  closeModal();updateKeyUI();toast('API keys saved ✓','ok');
 }
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
@@ -405,7 +416,7 @@ async function extractPDF(file){
   return out.trim();
 }
 function checkReady(){
-  if(!isRunning) document.getElementById('goBtn').disabled=!(cvText&&getKey());
+  if(!isRunning) document.getElementById('goBtn').disabled=!(cvText&&getGeminiKey()&&getCerebrasKey());
 }
 
 // ── log / progress ────────────────────────────────────────────────────────────
@@ -441,18 +452,117 @@ function hideRLBanner(){
 
 // ── sleep helper ───────────────────────────────────────────────────────────────
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const stopWords=new Set(['a','an','and','are','as','at','be','by','for','from','in','into','is','of','on','or','that','the','to','with']);
+
+function normalizeText(value){
+  return String(value||'').toLowerCase().replace(/[^a-z0-9+#.\s/-]/g,' ');
+}
+function tokenize(value){
+  return normalizeText(value)
+    .split(/\s+/)
+    .map(t=>t.trim())
+    .filter(t=>t && t.length>1 && !stopWords.has(t));
+}
+function unique(list){return [...new Set((list||[]).filter(Boolean))]}
+function inferWorkType(text){
+  const v=normalizeText(text);
+  if(/hybrid/.test(v)) return 'hybrid';
+  if(/remote|work from home|distributed/.test(v)) return 'remote';
+  return 'onsite';
+}
+function inferExperienceLevel(years){
+  if(years>=8) return 'senior';
+  if(years>=3) return 'mid';
+  return 'junior';
+}
+function normalizeCandidate(profile){
+  return {
+    name:profile?.name||'Candidate',
+    current_role:profile?.current_role||'Professional',
+    experience_years:Number(profile?.experience_years)||0,
+    top_skills:unique((profile?.top_skills||[]).map(s=>String(s).trim())).slice(0,8),
+    location:profile?.location||'',
+    domain:profile?.domain||'',
+    job_search_queries:unique(profile?.job_search_queries||[]).slice(0,3),
+    experience_level:profile?.experience_level||inferExperienceLevel(Number(profile?.experience_years)||0)
+  };
+}
+
+// ── Cerebras resume analysis ───────────────────────────────────────────────────
+async function cerebrasAnalyzeResume(resumeText){
+  if(location.protocol==='file:'){
+    throw new Error('Cerebras browser-side calls from a local file are not reliable. Use a small backend/proxy for gpt-oss-120b instead.');
+  }
+  const res=await fetch(`${CEREBRAS_BASE_URL}/chat/completions`,{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'Authorization':`Bearer ${getCerebrasKey()}`
+    },
+    body:JSON.stringify({
+      model:CEREBRAS_MODEL,
+      temperature:0.1,
+      max_completion_tokens:700,
+      messages:[
+        {
+          role:'developer',
+          content:'You extract resume information for job search. Return structured JSON only.'
+        },
+        {
+          role:'user',
+          content:`Analyze this resume for job search and return a concise profile.\nResume:\n${resumeText.slice(0,5000)}`
+        }
+      ],
+      response_format:{
+        type:'json_schema',
+        json_schema:{
+          name:'resume_profile',
+          strict:true,
+          schema:{
+            type:'object',
+            additionalProperties:false,
+            required:['name','current_role','experience_years','location','domain','top_skills','job_search_queries','experience_level'],
+            properties:{
+              name:{type:'string'},
+              current_role:{type:'string'},
+              experience_years:{type:'integer'},
+              location:{type:'string'},
+              domain:{type:'string'},
+              top_skills:{type:'array',items:{type:'string'},maxItems:8},
+              job_search_queries:{type:'array',items:{type:'string'},maxItems:3},
+              experience_level:{type:'string',enum:['junior','mid','senior']}
+            }
+          }
+        }
+      }
+    })
+  });
+
+  if(!res.ok){
+    const err=await res.json().catch(()=>({}));
+    const baseMsg=err?.error?.message||`Cerebras ${res.status}`;
+    if(res.status===404){
+      throw new Error(`${baseMsg} (endpoint: ${CEREBRAS_BASE_URL}/chat/completions, model: ${CEREBRAS_MODEL}). If this page is running from file://, move the Cerebras call behind a backend proxy.`);
+    }
+    throw new Error(baseMsg);
+  }
+
+  const data=await res.json();
+  const raw=data?.choices?.[0]?.message?.content||'{}';
+  return normalizeCandidate(JSON.parse(raw));
+}
 
 // ── Gemini call with exponential backoff ───────────────────────────────────────
-// Max 4 retries: wait 65s, 70s, 80s, 90s on rate limit errors
+// Keep retries short on free tier so the UI does not stall for several minutes.
 async function gemini(prompt, attempt=0){
   const models=['gemini-2.0-flash','gemini-1.5-flash-latest','gemini-1.5-flash'];
-  const MAX_RETRIES=4;
+  const MAX_RETRIES=2;
   let lastErr;
 
   for(const model of models){
     try{
       const res=await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${getKey()}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${getGeminiKey()}`,
         {method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
             contents:[{parts:[{text:prompt}]}],
@@ -462,10 +572,10 @@ async function gemini(prompt, attempt=0){
 
       // ── 429 Rate Limit: wait and retry ──
       if(res.status===429){
-        if(attempt>=MAX_RETRIES) throw new Error('Rate limit exceeded after '+MAX_RETRIES+' retries. Please wait 1–2 minutes and try again.');
+        if(attempt>=MAX_RETRIES) throw new Error('Gemini free-tier rate limit is busy right now. Please wait about a minute and try again.');
         // Respect Retry-After header if present, else use backoff schedule
         const retryAfter=parseInt(res.headers.get('Retry-After')||'0')||0;
-        const waitSecs=retryAfter>0 ? retryAfter+2 : [65,70,80,90][attempt]||90;
+        const waitSecs=Math.min(35,retryAfter>0 ? retryAfter+2 : [12,25][attempt]||25);
         addLog(`Rate limit hit — waiting ${waitSecs}s then retrying (${attempt+1}/${MAX_RETRIES})…`,'wait');
         showRLBanner(waitSecs);
         await sleep(waitSecs*1000);
@@ -559,7 +669,7 @@ async function fetchTheMuse(q){
 async function go(){
   if(isRunning){toast('Already running…','warn');return}
   if(!cvText){toast('Upload your resume first','err');return}
-  if(!getKey()){openModal();return}
+  if(!getGeminiKey()||!getCerebrasKey()){openModal();return}
 
   isRunning=true;
   document.getElementById('goBtn').disabled=true;
@@ -574,12 +684,8 @@ async function go(){
     // Step 1 – parse resume (use cache if same file)
     let profile=cachedProfile;
     if(!profile){
-      addLog('Parsing resume with Gemini AI...');setP(8,'Analyzing resume…');
-      // Compact prompt — fewer tokens = less chance of hitting limits
-      profile=await gemini(`Analyze this resume. Return ONLY valid JSON, no other text:
-{"name":"string","current_role":"string","experience_years":0,"location":"string","domain":"string","top_skills":["s1","s2","s3","s4","s5"],"job_search_queries":["q1","q2","q3"],"experience_level":"junior|mid|senior"}
-Resume:
-${cvText.slice(0,4000)}`);
+      addLog('Parsing resume with Cerebras AI...');setP(8,'Analyzing resume…');
+      profile=await cerebrasAnalyzeResume(cvText);
       cachedProfile=profile; // cache so re-runs skip this call
       addLog(`Profile: ${profile.name} · ${profile.experience_years}yr · ${profile.domain}`,'ok');
     }else{
@@ -617,40 +723,60 @@ ${cvText.slice(0,4000)}`);
 
     if(!combined.length)throw new Error('No jobs found from any board. Try a more general resume.');
 
-    // Step 2 – score (compact prompt, fewer jobs, shorter descriptions)
-    addLog('AI scoring & ranking jobs…');setP(80,'Ranking…');
-    const batch=combined.slice(0,40); // reduced from 55 to save tokens
-    const scored=await gemini(`Score these jobs for this candidate. Return ONLY valid JSON.
+    // Step 2 – Gemini ranks the live jobs against the parsed resume.
+    addLog('Ranking jobs with Gemini AI…');setP(80,'Ranking…');
+    const batch=combined.slice(0,40);
+    const scored=await gemini(`Score these live jobs for this candidate. Return ONLY valid JSON.
 
 Candidate: ${JSON.stringify({
-  name:profile.name,role:profile.current_role,years:profile.experience_years,
-  skills:profile.top_skills,domain:profile.domain,level:profile.experience_level
+  name:profile.name,
+  role:profile.current_role,
+  years:profile.experience_years,
+  skills:profile.top_skills,
+  domain:profile.domain,
+  location:profile.location,
+  level:profile.experience_level
 })}
 
 Jobs: ${JSON.stringify(batch.map((j,i)=>({
-  idx:i,title:j.title,company:j.company,
-  desc:j.description.slice(0,200) // short desc to save tokens
+  idx:i,
+  title:j.title,
+  company:j.company,
+  location:j.location,
+  work_type:j.work_type,
+  description:j.description.slice(0,220)
 })))}
 
-Return top 12 matches:
-{"candidate":{"name":"","current_role":"","experience_years":0,"top_skills":[],"location":"","domain":""},"jobs":[{"idx":0,"score":0,"why_match":["r1","r2","r3"],"matched_skills":["s1"],"missing_skills":["s1"]}]}
+Return this shape:
+{"jobs":[{"idx":0,"score":0,"why_match":["reason 1","reason 2","reason 3"],"matched_skills":["skill"],"missing_skills":["skill"]}]}
 
-Rules: score 0-100, skills 40%, seniority 30%, domain 20%, location 10%. Only include scores 55+. Top 12 by score desc.`);
+Rules:
+- score 0-100
+- weight skills most heavily, then seniority, then domain, then location/work-type
+- return top 12 jobs sorted by score descending
+- keep why_match concise
+- only output JSON`);
+    const finalJobs=(scored.jobs||[])
+      .map(s=>({
+        ...(batch[s.idx]||{}),
+        score:Number(s.score)||0,
+        why_match:Array.isArray(s.why_match)?s.why_match.slice(0,3):[],
+        matched_skills:Array.isArray(s.matched_skills)?s.matched_skills.slice(0,5):[],
+        missing_skills:Array.isArray(s.missing_skills)?s.missing_skills.slice(0,3):[]
+      }))
+      .filter(job=>job.title)
+      .sort((a,b)=>b.score-a.score)
+      .slice(0,12)
+      .map((job,i)=>({ ...job, rank:i+1 }));
 
     setP(96,'Building dashboard…');
     addLog('Merging results…','ok');
-
-    const finalJobs=(scored.jobs||[])
-      .map(s=>({...(batch[s.idx]||{}),score:s.score,why_match:s.why_match||[],
-        matched_skills:s.matched_skills||[],missing_skills:s.missing_skills||[]}))
-      .sort((a,b)=>b.score-a.score)
-      .map((j,i)=>({...j,rank:i+1}));
 
     allJobs=finalJobs;
     setP(100,'Done!');
     addLog(`✓ Top ${finalJobs.length} jobs matched for you!`,'ok');
     await sleep(700);
-    renderResults(scored.candidate||profile,finalJobs);
+    renderResults(profile,finalJobs);
 
   }catch(err){
     document.getElementById('heroSection').style.display='flex';
@@ -660,6 +786,9 @@ Rules: score 0-100, skills 40%, seniority 30%, domain 20%, location 10%. Only in
     if(msg.includes('429')||msg.includes('Rate limit')||msg.includes('quota')){
       toast('Rate limit: wait ~1 min then retry','err');
       addLog('Rate limit exceeded — wait 60s and click Search again','warn');
+    }else if(msg.includes('Cerebras browser-side calls')||msg.includes('backend proxy')){
+      toast('Cerebras needs a backend proxy from this local page','err');
+      addLog('Cerebras call blocked on a local browser page — gpt-oss-120b should be called from a backend/proxy','warn');
     }else{
       toast('Error: '+msg,'err');
     }
